@@ -1,0 +1,178 @@
+diff --git a/net/openconnect/Makefile b/net/openconnect/Makefile
+index 10092ee..de2602d 100644
+--- a/net/openconnect/Makefile
++++ b/net/openconnect/Makefile
+@@ -8,12 +8,12 @@
+ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=openconnect
+-PKG_VERSION:=5.03
++PKG_VERSION:=5.99
+ PKG_RELEASE:=1
+ 
+ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+ PKG_SOURCE_URL:=ftp://ftp.infradead.org/pub/openconnect/
+-PKG_MD5SUM:=ff43ed1dbaccd2537fd7c5bfb04295a6
++PKG_MD5SUM:=9131734de36f28860889ac063b519372
+ 
+ include $(INCLUDE_DIR)/package.mk
+ 
+diff --git a/net/openconnect/files/openconnect.sh b/net/openconnect/files/openconnect.sh
+index 2a45857..76502f6 100755
+--- a/net/openconnect/files/openconnect.sh
++++ b/net/openconnect/files/openconnect.sh
+@@ -48,20 +48,17 @@ proto_openconnect_setup() {
+ 		umask 077
+ 		pwfile="/var/run/openconnect-$config.passwd"
+ 		echo "$password" > "$pwfile"
+-		append cmdline "--passwd-on-stdin"
++		append cmdline "--passwd-file=$pwfile"
+ 	}
+ 
+ 	proto_export INTERFACE="$config"
+ 	logger -t openconnect "executing 'openconnect $cmdline'"
+ 
+-	if [ -f "$pwfile" ];then
+-		proto_run_command "$config" /usr/sbin/openconnect $cmdline <$pwfile
+-	else
+-		proto_run_command "$config" /usr/sbin/openconnect $cmdline
+-	fi
++	proto_run_command "$config" /usr/sbin/openconnect $cmdline
+ }
+ 
+ proto_openconnect_teardown() {
++	local config="$1"
+ 	pwfile="/var/run/openconnect-$config.passwd"
+ 
+ 	rm -f $pwfile
+diff --git a/net/openconnect/files/vpnc-script b/net/openconnect/files/vpnc-script
+index c815147..ba1d33e 100755
+--- a/net/openconnect/files/vpnc-script
++++ b/net/openconnect/files/vpnc-script
+@@ -26,6 +26,8 @@
+ #* CISCO_IPV6_SPLIT_INC_%d_ADDR -- IPv6 network address
+ #* CISCO_IPV6_SPLIT_INC_$%d_MASKLEN -- IPv6 subnet masklen
+ 
++HOOKS_DIR=/etc/vpnc
++
+ # FIXMEs:
+ 
+ # Section A: route handling
+@@ -122,6 +124,17 @@ do_disconnect() {
+ 	proto_send_update "$INTERFACE"
+ }
+ 
++#### Hooks
++run_hooks() {
++	HOOK="$1"
++
++	if [ -d ${HOOKS_DIR}/${HOOK}.d ]; then
++	    for script in ${HOOKS_DIR}/${HOOK}.d/* ; do
++		[ -f $script ] && . $script
++	    done
++	fi
++}
++
+ #### Main
+ 
+ if [ -z "$reason" ]; then
+@@ -137,14 +150,20 @@ fi
+ 
+ case "$reason" in
+ 	pre-init)
++		run_hooks pre-init
+ 		;;
+ 	connect)
++		run_hooks connect
+ 		do_connect
++		run_hooks post-connect
+ 		;;
+ 	disconnect)
++		run_hooks disconnect
+ 		do_disconnect
++		run_hooks post-disconnect
+ 		;;
+ 	reconnect)
++		run_hooks reconnect
+ 		;;
+ 	*)
+ 		logger -t openconnect "unknown reason '$reason'. Maybe vpnc-script is out of date" 1>&2
+diff --git a/net/openconnect/patches/100-passwd_file.patch b/net/openconnect/patches/100-passwd_file.patch
+new file mode 100644
+index 0000000..827ebb9
+--- /dev/null
++++ b/net/openconnect/patches/100-passwd_file.patch
+@@ -0,0 +1,73 @@
++diff -uNr orig/main.c new/main.c
++--- orig/main.c	2014-02-18 11:17:30.000000000 -0500
+++++ new/main.c	2014-05-27 17:18:48.000000000 -0400
++@@ -146,6 +146,7 @@
++ 	OPT_NO_XMLPOST,
++ 	OPT_PIDFILE,
++ 	OPT_PASSWORD_ON_STDIN,
+++	OPT_PASSWORD_FILE,
++ 	OPT_PRINTCOOKIE,
++ 	OPT_RECONNECT_TIMEOUT,
++ 	OPT_SERVERCERT,
++@@ -211,6 +212,7 @@
++ 	OPTION("xmlconfig", 1, 'x'),
++ 	OPTION("cookie-on-stdin", 0, OPT_COOKIE_ON_STDIN),
++ 	OPTION("passwd-on-stdin", 0, OPT_PASSWORD_ON_STDIN),
+++ 	OPTION("passwd-file", 1, OPT_PASSWORD_FILE),
++ 	OPTION("no-passwd", 0, OPT_NO_PASSWD),
++ 	OPTION("reconnect-timeout", 1, OPT_RECONNECT_TIMEOUT),
++ 	OPTION("dtls-ciphers", 1, OPT_DTLS_CIPHERS),
++@@ -384,6 +386,7 @@
++ 	printf("      --no-xmlpost                %s\n", _("Do not attempt XML POST authentication"));
++ 	printf("      --non-inter                 %s\n", _("Do not expect user input; exit if it is required"));
++ 	printf("      --passwd-on-stdin           %s\n", _("Read password from standard input"));
+++	printf("      --passwd-file=FILE          %s\n", _("Read password from a file"));
++ 	printf("      --token-mode=MODE           %s\n", _("Software token type: rsa, totp or hotp"));
++ 	printf("      --token-secret=STRING       %s\n", _("Software token secret"));
++ #ifndef HAVE_LIBSTOKEN
++@@ -442,6 +445,35 @@
++ 		*c = 0;
++ }
++ 
+++static void read_file(const char *filename, char **string)
+++{
+++	char *c = malloc(1025), *ret;
+++
+++	if (!c) {
+++		fprintf(stderr, _("Allocation failure for string from %s\n"), filename);
+++		exit(1);
+++	}
+++
+++    FILE *f = fopen(filename, "r");
+++
+++    if (!f) {
+++        fprintf(stderr, _("Failed to open file %s\n"), filename);
+++    }
+++
+++    ret = fgets(c, 1025, f);
+++
+++	if (!ret) {
+++		perror(_("fgets"));
+++		exit(1);
+++	}
+++
+++	*string = c;
+++
+++	c = strchr(*string, '\n');
+++	if (c)
+++		*c = 0;
+++}
+++
++ static int sig_cmd_fd;
++ #ifndef _WIN32
++ static int sig_caught;
++@@ -701,6 +733,9 @@
++ 		case OPT_PASSWORD_ON_STDIN:
++ 			read_stdin(&password, 0);
++ 			break;
+++		case OPT_PASSWORD_FILE:
+++			read_file(optarg, &password);
+++			break;
++ 		case OPT_NO_PASSWD:
++ 			vpninfo->nopasswd = 1;
++ 			break;
