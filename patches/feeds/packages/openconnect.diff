@@ -1,5 +1,5 @@
 diff --git a/net/openconnect/Makefile b/net/openconnect/Makefile
-index 10092ee..de2602d 100644
+index 9d5564e..1226286 100644
 --- a/net/openconnect/Makefile
 +++ b/net/openconnect/Makefile
 @@ -8,12 +8,12 @@
@@ -18,18 +18,9 @@ index 10092ee..de2602d 100644
  include $(INCLUDE_DIR)/package.mk
  
 diff --git a/net/openconnect/files/openconnect.sh b/net/openconnect/files/openconnect.sh
-index c0ff471..ecccdd0 100755
+index 315b311..ecccdd0 100755
 --- a/net/openconnect/files/openconnect.sh
 +++ b/net/openconnect/files/openconnect.sh
-@@ -26,7 +26,7 @@ proto_openconnect_setup() {
- 	for ip in $(resolveip -t 10 "$server"); do
- 		( proto_add_host_dependency "$config" "$ip" )
- 		serv_addr=1
--	fi
-+	done
- 	[ -n "$serv_addr" ] || {
- 		logger -t openconnect "Could not resolve server address: '$server'"
- 		sleep 20
 @@ -48,20 +48,17 @@ proto_openconnect_setup() {
  		umask 077
  		pwfile="/var/run/openconnect-$config.passwd"
@@ -55,7 +46,7 @@ index c0ff471..ecccdd0 100755
  
  	rm -f $pwfile
 diff --git a/net/openconnect/files/vpnc-script b/net/openconnect/files/vpnc-script
-index c815147..ba1d33e 100755
+index c815147..ed0e045 100755
 --- a/net/openconnect/files/vpnc-script
 +++ b/net/openconnect/files/vpnc-script
 @@ -26,6 +26,8 @@
@@ -67,7 +58,28 @@ index c815147..ba1d33e 100755
  # FIXMEs:
  
  # Section A: route handling
-@@ -122,6 +124,17 @@ do_disconnect() {
+@@ -50,19 +52,10 @@
+ do_connect() {
+ 	if [ -n "$CISCO_BANNER" ]; then
+ 		logger -t openconnect "Connect Banner:"
+-		logger -t openconnect "$CISCO_BANNER" | while read LINE ; do logger -t openconnect "|" "$LINE" ; done
++		echo "$CISCO_BANNER" | while read LINE ; do logger -t openconnect "|" "$LINE" ; done
+ 	fi
+ 
+ 	proto_init_update "$TUNDEV" 1
+-
+-	if [ -n "$INTERNAL_IP4_MTU" ]; then
+-		MTU=$INTERNAL_IP4_MTU
+-	fi
+-
+-	if [ -z "$MTU" ]; then
+-		MTU=1412
+-	fi
+-
+ 	proto_add_ipv4_address "$INTERNAL_IP4_ADDRESS" 32 "" "$INTERNAL_IP4_ADDRESS"
+ 
+ 	if [ -n "$INTERNAL_IP4_NETMASKLEN" ]; then
+@@ -122,6 +115,17 @@ do_disconnect() {
  	proto_send_update "$INTERFACE"
  }
  
@@ -85,7 +97,7 @@ index c815147..ba1d33e 100755
  #### Main
  
  if [ -z "$reason" ]; then
-@@ -137,14 +150,20 @@ fi
+@@ -137,14 +141,20 @@ fi
  
  case "$reason" in
  	pre-init)
