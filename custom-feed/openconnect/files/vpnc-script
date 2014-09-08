@@ -26,7 +26,7 @@
 #* CISCO_IPV6_SPLIT_INC_%d_ADDR -- IPv6 network address
 #* CISCO_IPV6_SPLIT_INC_$%d_MASKLEN -- IPv6 subnet masklen
 
-HOOKS_DIR=/etc/vpnc
+HOOKS_DIR=/etc/openconnect
 
 # FIXMEs:
 
@@ -56,6 +56,15 @@ do_connect() {
 	fi
 
 	proto_init_update "$TUNDEV" 1
+
+	if [ -n "$INTERNAL_IP4_MTU" ]; then
+		MTU=$INTERNAL_IP4_MTU
+	fi
+
+	if [ -z "$MTU" ]; then
+		MTU=1412
+	fi
+
 	proto_add_ipv4_address "$INTERNAL_IP4_ADDRESS" 32 "" "$INTERNAL_IP4_ADDRESS"
 
 	if [ -n "$INTERNAL_IP4_NETMASKLEN" ]; then
