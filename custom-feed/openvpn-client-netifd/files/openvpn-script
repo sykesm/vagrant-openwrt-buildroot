@@ -88,9 +88,9 @@ run_hooks() {
 	HOOK="$1"
 
 	if [ -d ${HOOKS_DIR}/${HOOK}.d ]; then
-	    for script in ${HOOKS_DIR}/${HOOK}.d/* ; do
-		[ -f $script ] && . $script
-	    done
+		for script in ${HOOKS_DIR}/${HOOK}.d/* ; do
+			[ -f $script ] && . $script
+		done
 	fi
 }
 
