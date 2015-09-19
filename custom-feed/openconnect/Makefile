@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006 OpenWrt.org
+# Copyright (C) 2006-2015 OpenWrt.org
 #
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
@@ -8,12 +8,13 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=openconnect
-PKG_VERSION:=7.03
+PKG_VERSION:=7.06
 PKG_RELEASE:=3
+PKG_USE_MIPS16:=0
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=ftp://ftp.infradead.org/pub/openconnect/
-PKG_MD5SUM:=83f6a359906d49473f591ba613ca3fe5
+PKG_MD5SUM:=80f397911e1fed43d897d99be3d5f1a1
 
 PKG_CONFIG_DEPENDS:= \
 	CONFIG_OPENCONNECT_GNUTLS \
@@ -39,10 +40,10 @@ endef
 define Package/openconnect/description
 	A VPN client compatible with Cisco's AnyConnect SSL VPN and ocserv.
 
-        OpenConnect is a client that follows the Cisco's AnyConnect SSL VPN protocol,
-        which is supported by IOS 12.4(9)T or later on Cisco SR500, 870, 880, 1800, 
-        2800, 3800, 7200 Series and Cisco 7301 Routers, as well as the OpenConnect
-        VPN server.
+	OpenConnect is a client that follows the Cisco's AnyConnect SSL VPN protocol,
+	which is supported by IOS 12.4(9)T or later on Cisco SR500, 870, 880, 1800,
+	2800, 3800, 7200 Series and Cisco 7301 Routers, as well as the OpenConnect
+	VPN server.
 endef
 
 CONFIGURE_ARGS += \
