@@ -36,6 +36,7 @@ Vagrant.configure('2') do |config|
 
   config.vm.provision 'shell', inline: 'sudo apt-get update'
   %w(
+    autopoint
     bash-completion
     build-essential
     bzr
